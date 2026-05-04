@@ -1,7 +1,7 @@
 ﻿@{
 RootModule = 'CimSweep.psm1'
 
-ModuleVersion = '0.6.2.0'
+ModuleVersion = '0.6.3.0'
 
 GUID = 'f347ef1c-d752-4d07-bf68-3197c0aa661a'
 
@@ -55,9 +55,28 @@ PrivateData = @{
 
         LicenseUri = 'http://www.apache.org/licenses/LICENSE-2.0.html'
 
-        ProjectUri = 'https://github.com/PowerShellMafia/CimSweep'
+        ProjectUri = 'https://github.com/jptorres26/CimSweep'
 
         ReleaseNotes = @'
+0.6.3
+-----
+Enhancements:
+* Added structured validation workflows for Windows PowerShell 5.1:
+  * scripts/Install-CimSweepDependencies.ps1
+  * scripts/Invoke-CimSweepTests.ps1
+  * scripts/Invoke-CimSweepSmoke.ps1
+  * scripts/Invoke-CimSweepValidation.ps1
+* Added structured JSONL run logging and failure categorization helpers.
+* Added WSMan->DCOM per-host smoke fallback support with -Protocol Auto.
+
+Bugfixes:
+* Added WQL string literal escaping helper and applied it to high-risk query filters.
+* Added Get-CSEventLogEntry -UserName support and filter handling.
+* Fixed Get-CSService filter routing for DisplayName/Description and preserved CIM session context for ACL conversion.
+* Fixed Get-CSProcess -CommandLine filter routing.
+* Added regression tests for quote-containing filters in event log, service, and process queries.
+* Pinned AppVeyor dependency versions and corrected analyzer file selection.
+
 0.6.2
 -----
 Enhancements:

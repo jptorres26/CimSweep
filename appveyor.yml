@@ -1,30 +1,31 @@
 os: WMF 5
 
-version: 0.5.0.{build}-{branch}
+version: 0.6.3.{build}-{branch}
 
 skip_commits:
   message: /^.*readme.*$/
   
 install:
-  - cinst pester
   - ps: Install-PackageProvider -Name NuGet -Force
-  - ps: Install-Module PsScriptAnalyzer -Force
+  - ps: Install-Module Pester -RequiredVersion 4.10.1 -Force -SkipPublisherCheck
+  - ps: Install-Module PsScriptAnalyzer -RequiredVersion 1.24.0 -Force -SkipPublisherCheck
 
 build: false
 
 test_script:
   - ps: |
         $ErrorActionPreference = 'Stop'
+        Import-Module Pester -RequiredVersion 4.10.1 -Force
+        Import-Module PsScriptAnalyzer -RequiredVersion 1.24.0 -Force
         
         Write-Host 'Adding PsScriptAnalyzer test'
         # PSScriptAnalyzer template derived from here:
         # http://theshellnut.com/integrating-psscriptanalyzer-appveyor/
         Add-AppveyorTest -Name 'PsScriptAnalyzer' -Outcome Running
         Write-Host 'Performing PSScriptAnalyzer tests'
-        $Results = Get-ChildItem . -Directory -Recurse |
-          Where-Object { $_.Name -ne 'Tests' } |
-            Get-ChildItem -File -Include '*.ps1, *.psm1' |
-              % { Invoke-ScriptAnalyzer -ErrorAction SilentlyContinue -Path $_.FullName -ExcludeRule PSShouldProcess }
+        $Results = Get-ChildItem -Path .\CimSweep -File -Recurse -Include '*.ps1', '*.psm1' |
+          Where-Object { $_.FullName -notmatch '[\\/]Tests[\\/]' } |
+            % { Invoke-ScriptAnalyzer -ErrorAction SilentlyContinue -Path $_.FullName -ExcludeRule PSShouldProcess }
         
         if ($Results) {
           Write-Host 'PSScriptAnalyzer returned errors/warnings that need to be addressed.'
