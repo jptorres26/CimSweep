@@ -665,11 +665,13 @@ Get-CSWmiPersistence only returns output when __FilterToConsumerBinding instance
             foreach ($Namespace in $TargetNamespaces) {
                 Get-CimInstance -Namespace $Namespace -ClassName __FilterToConsumerBinding @CommonArgs | ForEach-Object {
                     Write-Verbose "[$($Session.ComputerName)] Correlating referenced __EventFilter instance."
-                    $Filter = Get-CimInstance -Namespace $Namespace -ClassName __EventFilter -Filter "Name=`"$($_.Filter.Name)`"" @CommonArgs
+                    $EscapedFilterName = ConvertTo-CSWqlStringLiteral -Value $_.Filter.Name
+                    $Filter = Get-CimInstance -Namespace $Namespace -ClassName __EventFilter -Filter "Name='$EscapedFilterName'" @CommonArgs
 
                     $ConsumerClass = $_.Consumer.PSObject.TypeNames[0].Split('/')[-1]
                     Write-Verbose "[$($Session.ComputerName)] Correlating referenced __EventConsumer instance."
-                    $Consumer = Get-CimInstance -Namespace $Namespace -ClassName $ConsumerClass -Filter "Name=`"$($_.Consumer.Name)`"" @CommonArgs
+                    $EscapedConsumerName = ConvertTo-CSWqlStringLiteral -Value $_.Consumer.Name
+                    $Consumer = Get-CimInstance -Namespace $Namespace -ClassName $ConsumerClass -Filter "Name='$EscapedConsumerName'" @CommonArgs
 
                     $ObjectProperties = [Ordered] @{
                         PSTypeName = 'CimSweep.WmiPersistence'

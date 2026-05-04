@@ -728,11 +728,11 @@ Gets only the events that are associated with the specified user names.
 
 .PARAMETER LimitOutput
 
-Specifies that an explicit list of Win32_Process properties should be returned. This can significantly reduce the time it takes to sweep across many systems is only a subset of properties are desired.
+Specifies that an explicit list of Win32_NTLogEvent properties should be returned. This can significantly reduce the time it takes to sweep across many systems if only a subset of properties are desired.
 
 .PARAMETER Property
 
-Specifies the desired properties to retrieve from Win32_Process instances. The following properties are returned when limited output is desired: ProcessId, ParentProcessId, Name, ExecutablePath, CommandLine
+Specifies the desired properties to retrieve from Win32_NTLogEvent instances. The following properties are returned when limited output is desired: LogFile, CategoryString, EventCode, EventIdentifier, Message, SourceName, TimeGenerated, Type
 
 .PARAMETER CimSession
 
@@ -825,6 +825,12 @@ Outputs Win32_NtLogEvent instances.
         $Source,
 
         [Parameter(ParameterSetName='DefaultOutput')]
+        [Parameter(ParameterSetName='RestrictOutput')]
+        [String]
+        [ValidateNotNullOrEmpty()]
+        $UserName,
+
+        [Parameter(ParameterSetName='DefaultOutput')]
         [Switch]
         $LimitOutput,
 
@@ -897,7 +903,10 @@ Outputs Win32_NtLogEvent instances.
                 FailureAudit = [Byte] 5
             }
 
-            if ($PSBoundParameters['LogName']) { $FilterComponents.Add("LogFile='$LogName'") }
+            if ($PSBoundParameters['LogName']) {
+                $EscapedLogName = ConvertTo-CSWqlStringLiteral -Value $LogName
+                $FilterComponents.Add("LogFile='$EscapedLogName'")
+            }
             if ($PSBoundParameters['EventCode']) { $FilterComponents.Add("($(($EventCode | ForEach-Object { "EventCode = $_" }) -join ' OR '))") }
             if ($PSBoundParameters['EventIdentifier']) { $FilterComponents.Add("($(($EventIdentifier | ForEach-Object { "EventIdentifier = $_" }) -join ' OR '))") }
             if ($PSBoundParameters['EntryType']) { $FilterComponents.Add("EventType=$($TypeMapping[$EntryType])") }
@@ -910,8 +919,18 @@ Outputs Win32_NtLogEvent instances.
             }
             if ($PSBoundParameters['TimeGeneratedBefore']) { $FilterComponents.Add("TimeGenerated<'$($TimeGeneratedBefore.ToUniversalTime().ToString('yyyyMMddHHmmss.ffffff+000'))'") }
             if ($PSBoundParameters['TimeGeneratedAfter']) { $FilterComponents.Add("TimeGenerated>'$($TimeGeneratedAfter.ToUniversalTime().ToString('yyyyMMddHHmmss.ffffff+000'))'") }
-            if ($PSBoundParameters['Message']) { $FilterComponents.Add("Message LIKE '%$($Message)%'") }
-            if ($PSBoundParameters['Source']) { $FilterComponents.Add("SourceName LIKE '%$Source%'") }
+            if ($PSBoundParameters['Message']) {
+                $EscapedMessage = ConvertTo-CSWqlStringLiteral -Value $Message
+                $FilterComponents.Add("Message LIKE '%$EscapedMessage%'")
+            }
+            if ($PSBoundParameters['Source']) {
+                $EscapedSource = ConvertTo-CSWqlStringLiteral -Value $Source
+                $FilterComponents.Add("SourceName LIKE '%$EscapedSource%'")
+            }
+            if ($PSBoundParameters['UserName']) {
+                $EscapedUserName = ConvertTo-CSWqlStringLiteral -Value $UserName
+                $FilterComponents.Add("User LIKE '%$EscapedUserName%'")
+            }
 
             if ($FilterComponents.Count) {
                 $Filter = $FilterComponents -join ' AND '
@@ -1276,7 +1295,8 @@ Filter parameters in Get-CSDirectoryListing only apply to files, not directories
             $NewPath = $TrimmedPath.Substring(2)
 
             # Build targeted Win32_Directory query
-            $Filter = "Drive = `"$($DriveLetter):`" AND Path=`"$($NewPath.Replace('\', '\\'))\\`""
+            $EscapedWqlPath = ConvertTo-CSWqlStringLiteral -Value ($NewPath.Replace('\', '\\'))
+            $Filter = "Drive = '$($DriveLetter):' AND Path='$EscapedWqlPath\\'"
 
             $DirArguments = @{
                 ClassName = 'Win32_Directory'
@@ -1362,9 +1382,24 @@ Filter parameters in Get-CSDirectoryListing only apply to files, not directories
 
                 $DmtfFormat = 'yyyyMMddHHmmss.ffffff+000'
 
-                if ($PSBoundParameters['FileName']) { $FilterComponents.Add("($(($FileName | ForEach-Object { "Name=``"$($TrimmedPath.Replace('\', '\\'))\\$_``"" }) -join ' OR '))") }
+                if ($PSBoundParameters['FileName']) {
+                    $EscapedTrimmedPath = ConvertTo-CSWqlStringLiteral -Value ($TrimmedPath.Replace('\', '\\'))
+                    $FileNameFilter = ($FileName | ForEach-Object {
+                        $EscapedFileName = ConvertTo-CSWqlStringLiteral -Value $_
+                        "Name='$EscapedTrimmedPath\\$EscapedFileName'"
+                    }) -join ' OR '
+
+                    $FilterComponents.Add("($FileNameFilter)")
+                }
                 if ($PSBoundParameters['FileSize']) { $FilterComponents.Add("($(($FileSize | ForEach-Object { "FileSize = $_" }) -join ' OR '))") }
-                if ($PSBoundParameters['Extension']) { $FilterComponents.Add("($(($Extension | ForEach-Object { "Extension =``"$_``"" }) -join ' OR '))") }
+                if ($PSBoundParameters['Extension']) {
+                    $ExtensionFilter = ($Extension | ForEach-Object {
+                        $EscapedExtension = ConvertTo-CSWqlStringLiteral -Value $_
+                        "Extension ='$EscapedExtension'"
+                    }) -join ' OR '
+
+                    $FilterComponents.Add("($ExtensionFilter)")
+                }
                 if ($PSBoundParameters['LastModified']) {
                     $BeginningOfSecond = $LastModified.AddMilliseconds(- $LastModified.Millisecond)
                     $EndOfSecond = $BeginningOfSecond.AddSeconds(1)
@@ -1503,11 +1538,11 @@ Specifies that only classes of type Win32_SystemDriver should be returned.
 
 .PARAMETER LimitOutput
 
-Specifies that an explicit list of Win32_Process properties should be returned. This can significantly reduce the time it takes to sweep across many systems is only a subset of properties are desired.
+Specifies that an explicit list of Win32_BaseService properties should be returned. This can significantly reduce the time it takes to sweep across many systems if only a subset of properties are desired.
 
 .PARAMETER Property
 
-Specifies the desired properties to retrieve from Win32_Process instances. The following properties are returned when limited output is desired: ProcessId, ParentProcessId, Name, ExecutablePath, CommandLine
+Specifies the desired properties to retrieve from Win32_BaseService instances. The following properties are returned when limited output is desired: Name, DisplayName, Description, State, ServiceType, PathName
 
 .PARAMETER IncludeAcl
 
@@ -1782,12 +1817,16 @@ Outputs Win32_Service or Win32_SystemDriver instances both of which derive from 
 
             $ServiceEntryArgs = @{}
 
-            if ($PSBoundParameters['Name']) { $FilterComponents.Add("Name LIKE '%$Name%'") }
+            if ($PSBoundParameters['Name']) {
+                $EscapedName = ConvertTo-CSWqlStringLiteral -Value $Name
+                $FilterComponents.Add("Name LIKE '%$EscapedName%'")
+            }
             if ($PSBoundParameters.ContainsKey('DisplayName')) {
                 if ($DisplayName -eq [String]::Empty) {
-                    $FilterComponents.Add('PathName = ""')
+                    $FilterComponents.Add('DisplayName = ""')
                 } else {
-                    $FilterComponents.Add("PathName LIKE '%$DisplayName%'")
+                    $EscapedDisplayName = ConvertTo-CSWqlStringLiteral -Value $DisplayName
+                    $FilterComponents.Add("DisplayName LIKE '%$EscapedDisplayName%'")
                 }
             }
             if ($PSBoundParameters['State']) { $FilterComponents.Add("State = '$State'") }
@@ -1797,14 +1836,16 @@ Outputs Win32_Service or Win32_SystemDriver instances both of which derive from 
                 if ($PathName -eq [String]::Empty) {
                     $FilterComponents.Add('PathName = ""')
                 } else {
-                    $FilterComponents.Add("PathName LIKE '%$PathName%'")
+                    $EscapedPathName = ConvertTo-CSWqlStringLiteral -Value $PathName
+                    $FilterComponents.Add("PathName LIKE '%$EscapedPathName%'")
                 }
             }
             if ($PSBoundParameters.ContainsKey('Description')) {
                 if ($Description -eq [String]::Empty) {
-                    $FilterComponents.Add('PathName = ""')
+                    $FilterComponents.Add('Description = ""')
                 } else {
-                    $FilterComponents.Add("PathName LIKE '%$Description%'")
+                    $EscapedDescription = ConvertTo-CSWqlStringLiteral -Value $Description
+                    $FilterComponents.Add("Description LIKE '%$EscapedDescription%'")
                 }
             }
 
@@ -1838,7 +1879,7 @@ Outputs Win32_Service or Win32_SystemDriver instances both of which derive from 
                             }
 
                             # Convert the WMI security descriptor to a raw byte array.
-                            $ConversionResult = Invoke-CimMethod @Win32SDToBinarySDArgs
+                            $ConversionResult = Invoke-CimMethod @Win32SDToBinarySDArgs @CommonArgs
 
                             if ($ConversionResult.ReturnValue -eq 0) {
                                 # Convert to a proper, fully parsed .NET class (using the ServiceSecurity class created with reflection above).
@@ -2119,21 +2160,26 @@ Outputs Win32_Process instances.
 
             $ProcessEntryArgs = @{}
 
-            if ($PSBoundParameters['Name']) { $FilterComponents.Add("Name LIKE '%$Name%'") }
+            if ($PSBoundParameters['Name']) {
+                $EscapedName = ConvertTo-CSWqlStringLiteral -Value $Name
+                $FilterComponents.Add("Name LIKE '%$EscapedName%'")
+            }
             if ($PSBoundParameters['ProcessID']) { $FilterComponents.Add("ProcessID = $ProcessID") }
             if ($PSBoundParameters['ParentProcessID']) { $FilterComponents.Add("ParentProcessID = $ParentProcessID") }
             if ($PSBoundParameters.ContainsKey('CommandLine')) {
                 if ($CommandLine -eq [String]::Empty) {
-                    $FilterComponents.Add('ExecutablePath = ""')
+                    $FilterComponents.Add('CommandLine = ""')
                 } else {
-                    $FilterComponents.Add("ExecutablePath LIKE '%$CommandLine%'")
+                    $EscapedCommandLine = ConvertTo-CSWqlStringLiteral -Value $CommandLine
+                    $FilterComponents.Add("CommandLine LIKE '%$EscapedCommandLine%'")
                 }
             }
             if ($PSBoundParameters.ContainsKey('ExecutablePath')) {
                 if ($ExecutablePath -eq [String]::Empty) {
                     $FilterComponents.Add('ExecutablePath = ""')
                 } else {
-                    $FilterComponents.Add("ExecutablePath LIKE '%$ExecutablePath%'")
+                    $EscapedExecutablePath = ConvertTo-CSWqlStringLiteral -Value $ExecutablePath
+                    $FilterComponents.Add("ExecutablePath LIKE '%$EscapedExecutablePath%'")
                 }
             }
 

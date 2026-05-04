@@ -78,7 +78,8 @@ CimSweep.ProxyConfig
             #If a UserName was given, map the 
             if($PSBoundParameters['UserName'])
             {
-                $InstanceArgs['Filter'] = "Name=`'$UserName`'"
+                $EscapedUserName = ConvertTo-CSWqlStringLiteral -Value $UserName
+                $InstanceArgs['Filter'] = "Name='$EscapedUserName'"
                 $SID = (Get-CimInstance @InstanceArgs @CommonArgs).SID 
 
                 $Hive = 'HKU'

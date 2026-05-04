@@ -321,6 +321,17 @@ Describe 'Get-CSEventLogEntry' {
         { Get-CSEventLogEntry -EntryType Warning -CimSession $TestCimSession1 | Select-Object -First 1 } | Should Not Throw
     }
 
+    It 'should accept a username filter' {
+        { Get-CSEventLogEntry -UserName SYSTEM | Select-Object -First 1 } | Should Not Throw
+        { Get-CSEventLogEntry -UserName SYSTEM -CimSession $TestCimSession1 | Select-Object -First 1 } | Should Not Throw
+    }
+
+    It 'should not throw when filters contain apostrophes' {
+        { Get-CSEventLogEntry -Source "o'hare" | Select-Object -First 1 } | Should Not Throw
+        { Get-CSEventLogEntry -Message "can't login" -CimSession $TestCimSession1 | Select-Object -First 1 } | Should Not Throw
+        { Get-CSEventLogEntry -UserName "svc'o365" | Select-Object -First 1 } | Should Not Throw
+    }
+
     It 'should return Win32_NtLogEvent instances' {
         $Event = Get-CSEventLogEntry | Select-Object -First 1
         $Event.PSObject.TypeNames[0] | Should BeExactly 'Microsoft.Management.Infrastructure.CimInstance#root/cimv2/Win32_NTLogEvent'
@@ -772,6 +783,53 @@ Describe 'Get-CSService' {
         $Service.PSComputerName | Should BeExactly 'localhost'
     }
 
+    It 'should not throw when string filters contain apostrophes' {
+        { Get-CSService -Name "svc'o365" | Select-Object -First 1 } | Should Not Throw
+        { Get-CSService -DisplayName "Bob's service" -CimSession $TestCimSession1 | Select-Object -First 1 } | Should Not Throw
+        { Get-CSService -Description "driver's helper" | Select-Object -First 1 } | Should Not Throw
+        { Get-CSService -PathName "C:\\Program Files\\O'Brien\\agent.exe" | Select-Object -First 1 } | Should Not Throw
+    }
+
+    It 'should filter services by display name' {
+        $ReferenceService = Get-CSService | Where-Object { $_.DisplayName } | Select-Object -First 1
+        $ReferenceService | Should Not BeNullOrEmpty
+
+        $FilteredServices = Get-CSService -DisplayName $ReferenceService.DisplayName
+
+        $FilteredServices | Should Not BeNullOrEmpty
+        ($FilteredServices | Where-Object { $_.Name -eq $ReferenceService.Name }) | Should Not BeNullOrEmpty
+    }
+
+    It 'should filter services by description' {
+        $ReferenceService = Get-CSService | Where-Object { $_.Description } | Select-Object -First 1
+        $ReferenceService | Should Not BeNullOrEmpty
+
+        $FilteredServices = Get-CSService -Description $ReferenceService.Description
+
+        $FilteredServices | Should Not BeNullOrEmpty
+        ($FilteredServices | Where-Object { $_.Name -eq $ReferenceService.Name }) | Should Not BeNullOrEmpty
+    }
+
+    It 'should filter services by display name w/ CIM sessions' {
+        $ReferenceService = Get-CSService -CimSession $TestCimSession1 | Where-Object { $_.DisplayName } | Select-Object -First 1
+        $ReferenceService | Should Not BeNullOrEmpty
+
+        $FilteredServices = Get-CSService -DisplayName $ReferenceService.DisplayName -CimSession $TestCimSession1
+
+        $FilteredServices | Should Not BeNullOrEmpty
+        ($FilteredServices | Where-Object { $_.Name -eq $ReferenceService.Name }) | Should Not BeNullOrEmpty
+    }
+
+    It 'should filter services by description w/ CIM sessions' {
+        $ReferenceService = Get-CSService -CimSession $TestCimSession1 | Where-Object { $_.Description } | Select-Object -First 1
+        $ReferenceService | Should Not BeNullOrEmpty
+
+        $FilteredServices = Get-CSService -Description $ReferenceService.Description -CimSession $TestCimSession1
+
+        $FilteredServices | Should Not BeNullOrEmpty
+        ($FilteredServices | Where-Object { $_.Name -eq $ReferenceService.Name }) | Should Not BeNullOrEmpty
+    }
+
     It 'should limit the output of its properties to a default set' {
         $Service = Get-CSService -LimitOutput | Select-Object -First 1
         $Service | Should Not BeNullOrEmpty
@@ -876,6 +934,32 @@ Describe 'Get-CSProcess' {
         $Process | Should Not BeNullOrEmpty
         $Process.PSObject.TypeNames[0] | Should Be $ProcessWMIType
         $Process.PSComputerName | Should BeExactly 'localhost'
+    }
+
+    It 'should not throw when process filters contain apostrophes' {
+        { Get-CSProcess -Name "proc'o365" | Select-Object -First 1 } | Should Not Throw
+        { Get-CSProcess -CommandLine "C:\\O'Brien\\agent.exe -arg" -CimSession $TestCimSession1 | Select-Object -First 1 } | Should Not Throw
+        { Get-CSProcess -ExecutablePath "C:\\Program Files\\O'Brien\\agent.exe" | Select-Object -First 1 } | Should Not Throw
+    }
+
+    It 'should filter processes by command line' {
+        $ReferenceProcess = Get-CSProcess | Where-Object { $_.CommandLine } | Select-Object -First 1
+        $ReferenceProcess | Should Not BeNullOrEmpty
+
+        $FilteredProcess = Get-CSProcess -ProcessID $ReferenceProcess.ProcessId -CommandLine $ReferenceProcess.CommandLine | Select-Object -First 1
+
+        $FilteredProcess | Should Not BeNullOrEmpty
+        $FilteredProcess.ProcessId | Should BeExactly $ReferenceProcess.ProcessId
+    }
+
+    It 'should filter processes by command line w/ CIM sessions' {
+        $ReferenceProcess = Get-CSProcess -CimSession $TestCimSession1 | Where-Object { $_.CommandLine } | Select-Object -First 1
+        $ReferenceProcess | Should Not BeNullOrEmpty
+
+        $FilteredProcess = Get-CSProcess -ProcessID $ReferenceProcess.ProcessId -CommandLine $ReferenceProcess.CommandLine -CimSession $TestCimSession1 | Select-Object -First 1
+
+        $FilteredProcess | Should Not BeNullOrEmpty
+        $FilteredProcess.ProcessId | Should BeExactly $ReferenceProcess.ProcessId
     }
 
     It 'should limit the output of its properties to a default set' {
