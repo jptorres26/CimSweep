@@ -4,6 +4,10 @@
 # CimSweep
 CimSweep is a suite of CIM/WMI-based tools that enable the ability to perform incident response and hunting operations remotely across all versions of Windows. CimSweep may also be used to engage in offensive reconnaisance without the need to drop any payload to disk. Windows Management Instrumentation has been installed and its respective service running by default since Windows XP and Windows 2000 and is fully supported in the latest versions of Windows including Windows 10, Nano Server, and Server 2016.
 
+## Changelog
+
+See [CHANGELOG.md](./CHANGELOG.md) for release history and work-hardening updates.
+
 ## Background
 
 Agent-based defensive tools are extremely powerful but they also require deployment of the agent to each system. While agent-based solutions absolutely have a place in our industry, they tend to be very expensive and can be easily detected/thwarted by determined attackers. CimSweep enables the acquisition of time-sensitive data at scale all without needing to deploy an agent.
@@ -82,6 +86,70 @@ $CimSession_Winxp = New-CimSession -ComputerName winxp -Credential Administrator
 # Now I can start running CimSweep commands remotely!
 Get-CSRegistryValue -Hive HKLM -SubKey SOFTWARE\Microsoft\Windows\CurrentVersion\Run -CimSession $CimSession_Nano, $CimSession_Winxp
 ```
+
+## PowerShell 5.1 Validation Workflow
+
+For work-focused validation under Windows PowerShell 5.1, this repo includes pinned test dependencies and runnable scripts:
+
+* Pester `4.10.1`
+* PSScriptAnalyzer `1.24.0`
+
+### Install pinned test dependencies
+
+```powershell
+.\scripts\Install-CimSweepDependencies.ps1 -IncludePSScriptAnalyzer
+```
+
+### Run tests with pinned Pester
+
+```powershell
+.\scripts\Invoke-CimSweepTests.ps1 -Suite All -IncludePSScriptAnalyzer
+```
+
+Test artifacts (Pester XML, CSV summaries, analyzer findings) are written to `.\artifacts\tests_<timestamp>`.
+Each run also writes structured JSONL logs to `Run.log.jsonl` in the output directory.
+
+### Run a one-command smoke check
+
+```powershell
+.\scripts\Invoke-CimSweepSmoke.ps1 -ComputerName 'HOST1','HOST2' -Protocol Auto
+```
+
+Or for a quick local check:
+
+```powershell
+.\scripts\Invoke-CimSweepSmoke.ps1 -ComputerName localhost -Protocol Dcom -SkipDeepChecks
+```
+
+Smoke artifacts are written to `.\artifacts\smoke_<timestamp>`.
+Each run also writes structured JSONL logs to `Run.log.jsonl` in the output directory, including per-check failure categories.
+When `-Protocol Auto` is used, the smoke runner attempts WSMan first and falls back to DCOM per host.
+Session outcomes are exported to `Sessions.summary.csv/json`, and check outputs are written with deterministic per-host names: `<CheckName>.<ComputerName>.clixml`.
+
+### Run full validation (dependencies + tests + smoke) in one command
+
+```powershell
+.\scripts\Invoke-CimSweepValidation.ps1 -ComputerName 'HOST1','HOST2' -Protocol Auto
+```
+
+Validation writes a top-level structured log to:
+
+* `.\artifacts\validation_<timestamp>\Run.log.jsonl`
+
+Current failure categories include:
+
+* `Authentication`
+* `Authorization`
+* `Transport`
+* `TestFailure`
+* `SmokeFailure`
+* `NamespaceMissing`
+* `ClassMissing`
+* `NotFound`
+* `Dependency`
+* `ParameterBinding`
+* `UnsupportedPlatform`
+* `Unknown`
 
 ## Contributions and function design
 
